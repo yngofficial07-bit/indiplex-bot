@@ -1,0 +1,27 @@
+name: INDIPLEX_24_7_BOT
+
+# Kab chalana hai?
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Har 6 ghante mein (UTC time)
+  workflow_dispatch:      # Manual 'Run' button ke liye (Taki hum abhi test kar sakein)
+
+jobs:
+  run-bot-job:
+    runs-on: ubuntu-latest # GitHub ka server (Linux) use karenge
+    steps:
+      - name: Code Copy Karo
+        uses: actions/checkout@v3
+
+      - name: Python Setup Karo
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Libraries Install Karo
+        run: pip install -r requirements.txt
+
+      - name: Scraper Chalao
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }} # Secret se key uthayega
+        run: python scraper.py
