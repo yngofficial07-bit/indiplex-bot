@@ -1,27 +1,28 @@
 name: INDIPLEX_24_7_BOT
-
-# Kab chalana hai?
 on:
   schedule:
-    - cron: '0 */6 * * *' # Har 6 ghante mein (UTC time)
-  workflow_dispatch:      # Manual 'Run' button ke liye (Taki hum abhi test kar sakein)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   run-bot-job:
-    runs-on: ubuntu-latest # GitHub ka server (Linux) use karenge
+    runs-on: ubuntu-latest
     steps:
-      - name: Code Copy Karo
-        uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4 # Update to v4
 
-      - name: Python Setup Karo
-        uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5 # Update to v5
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
-      - name: Libraries Install Karo
-        run: pip install -r requirements.txt
+      - name: Install Dependencies
+        # Agar file nahi mil rahi toh manual install ka command dalo backup ke liye
+        run: |
+          pip install --upgrade pip
+          pip install cloudscraper pymongo beautifulsoup4 certifi
 
-      - name: Scraper Chalao
+      - name: Run Bot
         env:
-          MONGO_URI: ${{ secrets.MONGO_URI }} # Secret se key uthayega
+          MONGO_URI: ${{ secrets.MONGO_URI }}
         run: python scraper.py
