@@ -2,3 +2,4 @@ cloudscraper
 pymongo
 beautifulsoup4
 certifi
+requests
