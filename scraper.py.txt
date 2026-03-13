@@ -1,0 +1,45 @@
+import cloudscraper
+from bs4 import BeautifulSoup
+from pymongo import MongoClient
+import certifi
+import os
+
+# GitHub Secrets se URI uthana
+MONGO_URI = os.getenv("MONGO_URI")
+
+def run_scraper():
+    try:
+        client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+        db = client["indiplex_db"]
+        collection = db["media_vault"]
+
+        scraper = cloudscraper.create_scraper()
+        url = "https://hdhub4u.actor/" # Latest domain
+        
+        print("🚀 Scraper Running...")
+        response = scraper.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # HDHub4U ke movie cards ko find karna
+        movies = soup.find_all('div', class_='rt-movie-card') 
+        
+        for movie in movies:
+            title = movie.find('h3').text.strip()
+            poster = movie.find('img')['src']
+            link = movie.find('a')['href']
+            
+            # Database mein check karna ki duplicate na ho
+            if not collection.find_one({"title": title}):
+                collection.insert_one({
+                    "title": title,
+                    "poster": poster,
+                    "source_link": link,
+                    "status": "active"
+                })
+                print(f"✅ Synced: {title}")
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+if __name__ == "__main__":
+    run_scraper()
