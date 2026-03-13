@@ -1,12 +1,13 @@
-import cloudscraper
+import requests
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
 import certifi
 import os
 import time
 
-# GitHub Secrets se URI uthana
+# Secrets aur API Key
 MONGO_URI = os.getenv("MONGO_URI")
+SCRAPER_API_KEY = "d1688c53992a7ff781b6e6de27a23f98" # Teri ScraperAPI Key
 
 def run_scraper():
     try:
@@ -15,59 +16,44 @@ def run_scraper():
         db = client["indiplex_db"]
         collection = db["media_vault"]
 
-        # Cloudscraper Setup with Browser Emulation (To bypass 403)
-        scraper = cloudscraper.create_scraper(
-            browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'desktop': True
-            }
-        )
+        # Target URL (HDHub ka latest domain)
+        target_url = "https://new4.hdhub4u.fo/"
         
-        # Naya Domain
-        url = "https://new4.hdhub4u.fo/" 
+        # ScraperAPI Proxy URL
+        # render=true isliye taaki agar JavaScript loading ho toh wo bhi handle ho jaye
+        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&render=true"
         
-        print(f"🚀 Attempting to scrape: {url}")
+        print(f"🚀 Launching Unstoppable Scraper for: {target_url}")
         
-        # Requesting the page
-        response = scraper.get(url, timeout=30)
+        # Request via ScraperAPI
+        response = requests.get(proxy_url, timeout=60)
         
-        if response.status_code == 403:
-            print("❌ Access Denied (403): Cloudflare is still blocking. Trying alternative...")
-            # Agar 403 aata hai toh ek mirror site try karte hain
-            url = "https://hdhub4u.lat/"
-            response = scraper.get(url, timeout=30)
-
         if response.status_code != 200:
-            print(f"❌ Failed! Status Code: {response.status_code}")
+            print(f"❌ ScraperAPI failed with status: {response.status_code}")
             return
 
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # HDHub4U ke naye design ke hisaab se selectors
-        # Hum multiple options check karenge
+        # Movie Cards find karna
         movies = soup.find_all('div', class_='rt-movie-card') or soup.find_all('article')
         
-        print(f"🔍 Found {len(movies)} movie containers.")
+        print(f"🔍 Found {len(movies)} movies behind Cloudflare!")
         
         for movie in movies:
             try:
-                # Title dhundna
                 title_tag = movie.find('h3') or movie.find('h2')
                 if not title_tag: continue
                 title = title_tag.text.strip()
                 
-                # Link dhundna
                 link_tag = movie.find('a')
-                if not link_tag: continue
-                link = link_tag['href']
-                
-                # Image/Poster dhundna (data-src handle karne ke liye)
                 img_tag = movie.find('img')
-                if not img_tag: continue
+                
+                if not link_tag or not img_tag: continue
+                
+                link = link_tag['href']
                 poster = img_tag.get('data-src') or img_tag.get('src')
 
-                print(f"🎬 Processing: {title}")
+                print(f"🎬 Syncing: {title}")
                 
                 # Duplicate check aur Insert
                 if not collection.find_one({"title": title}):
@@ -76,19 +62,19 @@ def run_scraper():
                         "poster": poster,
                         "source_link": link,
                         "status": "active",
-                        "created_at": time.time()
+                        "timestamp": time.time()
                     })
-                    print(f"✅ Saved to Database: {title}")
+                    print(f"✅ Database Updated: {title}")
                 else:
-                    print(f"⏩ Skipping (Duplicate): {title}")
+                    print(f"⏩ Already in Database: {title}")
                     
-            except Exception as item_error:
-                print(f"⚠️ Item-level Error: {item_error}")
+            except Exception as e:
+                print(f"⚠️ Item Error: {e}")
 
-        print("🏁 Mission Successful!")
+        print("🏁 Mission Successful: Cloudflare Bypassed!")
 
     except Exception as e:
-        print(f"❌ Critical System Error: {e}")
+        print(f"❌ System Error: {e}")
 
 if __name__ == "__main__":
     run_scraper()
