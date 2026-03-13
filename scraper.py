@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from pymongo import MongoClient
 import certifi
 import os
+import time
 
 # GitHub Secrets se URI uthana
 MONGO_URI = os.getenv("MONGO_URI")
@@ -14,64 +15,80 @@ def run_scraper():
         db = client["indiplex_db"]
         collection = db["media_vault"]
 
-        # Scraper Setup
-        scraper = cloudscraper.create_scraper()
+        # Cloudscraper Setup with Browser Emulation (To bypass 403)
+        scraper = cloudscraper.create_scraper(
+            browser={
+                'browser': 'chrome',
+                'platform': 'windows',
+                'desktop': True
+            }
+        )
         
-        # NAYA DOMAIN YAHAN HAI:
+        # Naya Domain
         url = "https://new4.hdhub4u.fo/" 
         
-        print(f"🚀 Scraper started for: {url}")
+        print(f"🚀 Attempting to scrape: {url}")
         
-        # Request with timeout
+        # Requesting the page
         response = scraper.get(url, timeout=30)
+        
+        if response.status_code == 403:
+            print("❌ Access Denied (403): Cloudflare is still blocking. Trying alternative...")
+            # Agar 403 aata hai toh ek mirror site try karte hain
+            url = "https://hdhub4u.lat/"
+            response = scraper.get(url, timeout=30)
+
         if response.status_code != 200:
-            print(f"❌ Website access failed! Status Code: {response.status_code}")
+            print(f"❌ Failed! Status Code: {response.status_code}")
             return
 
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # HDHub4U ke movie cards find karna (Selector updated)
-        # Unke naye design mein aksar 'article' ya specific classes use hote hain
+        # HDHub4U ke naye design ke hisaab se selectors
+        # Hum multiple options check karenge
         movies = soup.find_all('div', class_='rt-movie-card') or soup.find_all('article')
         
-        print(f"🔍 Found {len(movies)} movies on the page.")
+        print(f"🔍 Found {len(movies)} movie containers.")
         
         for movie in movies:
             try:
-                # Title, Poster aur Link nikalna
+                # Title dhundna
                 title_tag = movie.find('h3') or movie.find('h2')
                 if not title_tag: continue
-                
                 title = title_tag.text.strip()
-                img_tag = movie.find('img')
+                
+                # Link dhundna
                 link_tag = movie.find('a')
-                
-                if not img_tag or not link_tag: continue
-                
-                poster = img_tag.get('src') or img_tag.get('data-src')
+                if not link_tag: continue
                 link = link_tag['href']
                 
-                print(f"🎬 Checking Movie: {title}")
+                # Image/Poster dhundna (data-src handle karne ke liye)
+                img_tag = movie.find('img')
+                if not img_tag: continue
+                poster = img_tag.get('data-src') or img_tag.get('src')
+
+                print(f"🎬 Processing: {title}")
                 
-                # Database mein duplicate check
+                # Duplicate check aur Insert
                 if not collection.find_one({"title": title}):
                     collection.insert_one({
                         "title": title,
                         "poster": poster,
                         "source_link": link,
-                        "status": "active"
+                        "status": "active",
+                        "created_at": time.time()
                     })
-                    print(f"✅ Synced to MongoDB: {title}")
+                    print(f"✅ Saved to Database: {title}")
                 else:
-                    print(f"⏩ Already exists: {title}")
+                    print(f"⏩ Skipping (Duplicate): {title}")
                     
             except Exception as item_error:
-                print(f"⚠️ Item Error: {item_error}")
+                print(f"⚠️ Item-level Error: {item_error}")
 
-        print("🏁 Mission Accomplished!")
+        print("🏁 Mission Successful!")
 
     except Exception as e:
-        print(f"❌ Critical Error: {e}")
+        print(f"❌ Critical System Error: {e}")
 
 if __name__ == "__main__":
     run_scraper()
