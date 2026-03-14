@@ -14,34 +14,45 @@ def run_scraper():
         db = client["indiplex_db"]
         collection = db["media_vault"]
 
-        # Target URL
         target_url = "https://new4.hdhub4u.fo/"
-        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&premium=true"
         
-        print(f"🚀 Scraping with Wide-Selectors: {target_url}")
-        response = requests.get(proxy_url, timeout=90)
+        # Premium + Render + Ultra Timeout
+        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&render=true&premium=true&wait_until=networkidle"
+        
+        print(f"🚀 Hunting movies on: {target_url}")
+        response = requests.get(proxy_url, timeout=120)
         
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # AGGRESSIVE SELECTORS: Sab kuch check karo
-            movies = soup.select('.rt-movie-card') or soup.select('article') or soup.select('.item') or soup.select('.post')
+            # Debugging: Page Title check
+            print(f"📄 Page Title: {soup.title.string if soup.title else 'No Title'}")
+
+            # Sabse pehle unke standard cards dhoondo
+            movies = soup.select('.rt-movie-card') or soup.select('article') or soup.select('.item')
             
-            print(f"🔍 Found {len(movies)} potential movies!")
-            
+            # Agar standard nahi mile, toh har 'a' tag ko dhoondo jisme image ho (The Master Hack)
+            if len(movies) == 0:
+                print("⚠️ Standard cards not found. Switching to Deep Scan...")
+                movies = [a for a in soup.find_all('a') if a.find('img')]
+
+            print(f"🔍 Found {len(movies)} potential items!")
+
             for movie in movies:
                 try:
-                    # Generic search for Title, Link and Poster
-                    link_tag = movie.find('a')
+                    # Link aur Title nikalne ki koshish
+                    link = movie.get('href') if movie.name == 'a' else movie.find('a')['href']
                     img_tag = movie.find('img')
-                    title_tag = movie.find('h3') or movie.find('h2') or (link_tag.get('title') if link_tag else None)
+                    
+                    if not img_tag or not link: continue
+                    
+                    # Movie sites aksar img ke 'alt' tag mein movie ka naam rakhti hain
+                    title = img_tag.get('alt') or img_tag.get('title') or "Untitled Movie"
+                    poster = img_tag.get('data-src') or img_tag.get('src')
 
-                    if link_tag and img_tag:
-                        title = title_tag.text.strip() if hasattr(title_tag, 'text') else str(title_tag)
-                        link = link_tag['href']
-                        poster = img_tag.get('data-src') or img_tag.get('src')
-
-                        if title and not collection.find_one({"title": title}):
+                    # Sirf wahi links lo jo movie posts ho sakte hain (filter out ads)
+                    if "/?p=" in link or "/movies/" in link or len(title) > 5:
+                        if not collection.find_one({"title": title}):
                             collection.insert_one({
                                 "title": title,
                                 "poster": poster,
@@ -52,12 +63,13 @@ def run_scraper():
                             print(f"✅ Synced: {title}")
                 except:
                     continue
-            print("🏁 Process Finished!")
+            
+            print(f"🏁 Mission Finished. Database check karo!")
         else:
-            print(f"💀 API Error: {response.status_code}")
+            print(f"❌ API Error: {response.status_code}")
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ System Error: {e}")
 
 if __name__ == "__main__":
     run_scraper()
