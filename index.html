@@ -9,51 +9,82 @@
         body { background: #0f172a; color: white; font-family: sans-serif; }
         .movie-card:hover img { transform: scale(1.1); }
         .movie-card img { transition: 0.4s; }
+        /* Custom scrollbar for better look */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #0891b2; }
     </style>
 </head>
 <body class="p-4 md:p-10">
     <div class="max-w-7xl mx-auto">
         <header class="flex justify-between items-center mb-10 border-b border-gray-700 pb-5">
             <h1 class="text-3xl font-bold text-cyan-400 tracking-tighter">INDIPLEX</h1>
-            <span class="bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full text-xs">Live Database</span>
+            <div class="flex items-center gap-2">
+                <span class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                </span>
+                <span class="text-cyan-400 text-xs font-bold uppercase tracking-widest">Live Feed</span>
+            </div>
         </header>
 
         <div id="movie-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            <div class="col-span-full text-center py-20 text-gray-500 italic">Fetching latest releases...</div>
+            <div class="col-span-full text-center py-20 text-gray-500 italic">
+                <div class="animate-spin inline-block w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full mb-4"></div>
+                <p>Syncing with database...</p>
+            </div>
         </div>
     </div>
 
     <script>
         async function loadMovies() {
             try {
-                // movies.json se data load karna
-                const response = await fetch('movies.json');
-                const movies = await response.json();
+                // './movies.json' use karne se GitHub Pages par path issue nahi hota
+                const response = await fetch('./movies.json?v=' + new Date().getTime());
                 
+                if (!response.ok) throw new Error('File not found');
+                
+                const movies = await response.json();
                 const grid = document.getElementById('movie-grid');
-                grid.innerHTML = ''; // Loader hatana
+                grid.innerHTML = ''; 
+
+                if (movies.length === 0) {
+                    grid.innerHTML = `<p class="col-span-full text-center text-gray-400 font-bold">No movies found. Run the scraper!</p>`;
+                    return;
+                }
 
                 movies.forEach(movie => {
+                    // Proxy use kar rahe hain taaki poster block na ho
+                    const posterUrl = `https://images.weserv.nl/?url=${encodeURIComponent(movie.poster)}&w=300&h=450&fit=cover`;
+
                     grid.innerHTML += `
-                        <div class="movie-card bg-slate-800 rounded-xl overflow-hidden shadow-2xl">
-                            <div class="overflow-hidden h-64 bg-slate-700">
-                                <img src="https://images.weserv.nl/?url=${encodeURIComponent(movie.poster)}" 
-     alt="Poster" 
-     class="w-full h-full object-cover" 
-     onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
+                        <div class="movie-card bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden shadow-2xl hover:border-cyan-500/50 transition-all duration-300">
+                            <div class="relative overflow-hidden h-72 bg-slate-900">
+                                <img src="${posterUrl}" 
+                                     alt="Poster" 
+                                     class="w-full h-full object-cover" 
+                                     loading="lazy"
+                                     onerror="this.src='https://via.placeholder.com/300x450?text=Poster+Not+Available'">
                             </div>
                             <div class="p-4">
-                                <h3 class="text-sm font-bold truncate mb-3">${movie.title}</h3>
+                                <h3 class="text-sm font-bold truncate mb-3 text-gray-200" title="${movie.title}">${movie.title}</h3>
                                 <a href="${movie.link}" target="_blank" 
-                                   class="block w-full py-2 text-center bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition">
-                                   VIEW MOVIE
+                                   class="block w-full py-2 text-center bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-cyan-900/20 transition-all duration-300">
+                                   DOWNLOAD NOW
                                 </a>
                             </div>
                         </div>
                     `;
                 });
             } catch (error) {
-                document.getElementById('movie-grid').innerHTML = `<p class="col-span-full text-center text-red-400">Error loading database. Please run scraper first.</p>`;
+                console.error(error);
+                document.getElementById('movie-grid').innerHTML = `
+                    <div class="col-span-full text-center bg-red-500/10 border border-red-500/20 p-10 rounded-xl">
+                        <p class="text-red-400 font-bold">Error: Database connection failed.</p>
+                        <p class="text-gray-500 text-sm mt-2">Make sure 'movies.json' exists in your repo.</p>
+                    </div>
+                `;
             }
         }
         loadMovies();
