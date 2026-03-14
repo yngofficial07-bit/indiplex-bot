@@ -2,8 +2,8 @@ name: INDIPLEX_24_7_BOT
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Har 6 ghante mein chalega
-  workflow_dispatch: # Manual run ke liye
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   run-bot-job:
@@ -20,8 +20,8 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          # cloudscraper ki jagah curl_cffi dal diya hai
-          pip install curl_cffi beautifulsoup4 pymongo certifi
+          # Naye stealth code ke liye ye libraries zaroori hain
+          pip install curl_cffi beautifulsoup4 pymongo certifi requests lxml
 
       - name: Run Bot
         env:
