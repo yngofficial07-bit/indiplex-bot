@@ -1,4 +1,4 @@
-import requests
+from curl_cffi import requests
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
 import certifi
@@ -6,7 +6,6 @@ import os
 import time
 
 MONGO_URI = os.getenv("MONGO_URI")
-SCRAPER_API_KEY = "d1688c53992a7ff781b6e6de27a23f98"
 
 def run_scraper():
     try:
@@ -14,62 +13,50 @@ def run_scraper():
         db = client["indiplex_db"]
         collection = db["media_vault"]
 
-        # RSS FEED: Ye seedha latest posts ka XML data nikalta hai
-        # Sabse safe aur sabse fast tarika
-        target_url = "https://new4.hdhub4u.fo/feed/"
+        url = "https://new4.hdhub4u.fo/"
         
-        print(f"📡 Accessing Secret RSS Feed: {target_url}")
+        print(f"🕵️ Stealth Mode: Impersonating Chrome to bypass Cloudflare...")
         
-        # Premium mode to bypass Cloudflare on Feed
-        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&premium=true"
-        response = requests.get(proxy_url, timeout=120)
+        # curl_cffi Chrome ka browser fingerprint copy karega
+        response = requests.get(url, impersonate="chrome110", timeout=30)
         
         if response.status_code == 200:
-            # RSS XML format mein hota hai
-            soup = BeautifulSoup(response.content, 'xml')
-            items = soup.find_all('item')
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            print(f"📦 Found {len(items)} latest movie posts in Feed!")
-
+            # Movies dhoondo
+            movies = soup.select('div.rt-movie-card') or soup.select('article')
+            
+            print(f"🔍 Found {len(movies)} movies!")
+            
             count = 0
-            for item in items:
+            for movie in movies:
                 try:
-                    title = item.title.text.strip()
-                    link = item.link.text.strip()
-                    
-                    # Image nikalne ke liye description mein jhaankna padta hai
-                    description = item.description.text if item.description else ""
-                    desc_soup = BeautifulSoup(description, 'html.parser')
-                    img_tag = desc_soup.find('img')
-                    
-                    poster = ""
-                    if img_tag:
-                        poster = img_tag.get('src') or img_tag.get('data-src')
+                    title_tag = movie.find('h3') or movie.find('h2')
+                    link_tag = movie.find('a')
+                    img_tag = movie.find('img')
 
-                    # Agar image nahi mili, toh hum default poster ya scraper se nikalenge
-                    if not poster:
-                        poster = "https://via.placeholder.com/300x450?text=Poster+Pending"
+                    if title_tag and link_tag:
+                        title = title_tag.get_text(strip=True)
+                        link = link_tag['href']
+                        poster = img_tag.get('data-src') or img_tag.get('src') if img_tag else ""
 
-                    # Database Sync
-                    if not collection.find_one({"title": title}):
-                        collection.insert_one({
-                            "title": title,
-                            "poster": poster,
-                            "source_link": link,
-                            "status": "active",
-                            "timestamp": time.time()
-                        })
-                        print(f"✅ RSS SYNCED: {title}")
-                        count += 1
-                    else:
-                        print(f"⏩ Already Synced: {title[:20]}...")
-                except Exception as e:
-                    print(f"⚠️ Item Error: {e}")
+                        if not collection.find_one({"title": title}):
+                            collection.insert_one({
+                                "title": title,
+                                "poster": poster,
+                                "source_link": link,
+                                "status": "active",
+                                "timestamp": time.time()
+                            })
+                            print(f"✅ Synced: {title}")
+                            count += 1
+                except:
                     continue
-            
-            print(f"🏁 RSS Mission Finished! Total Added: {count}")
+            print(f"🏁 Mission Accomplished! Added {count} movies.")
         else:
-            print(f"❌ API Error: {response.status_code}")
+            print(f"❌ Failed again! Status: {response.status_code}")
+            # Agar 403/500 aaye toh header debug karte hain
+            print("📄 Response Preview:", response.text[:200])
 
     except Exception as e:
         print(f"❌ Error: {e}")
