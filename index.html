@@ -37,8 +37,10 @@
                     grid.innerHTML += `
                         <div class="movie-card bg-slate-800 rounded-xl overflow-hidden shadow-2xl">
                             <div class="overflow-hidden h-64 bg-slate-700">
-                                <img src="${movie.poster}" alt="Poster" class="w-full h-full object-cover" 
-                                     onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
+                                <img src="https://images.weserv.nl/?url=${encodeURIComponent(movie.poster)}" 
+     alt="Poster" 
+     class="w-full h-full object-cover" 
+     onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
                             </div>
                             <div class="p-4">
                                 <h3 class="text-sm font-bold truncate mb-3">${movie.title}</h3>
