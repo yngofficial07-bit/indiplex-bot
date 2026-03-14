@@ -14,56 +14,55 @@ def run_scraper():
         db = client["indiplex_db"]
         collection = db["media_vault"]
 
-        # Hum .fo ki jagah unka alternative try karte hain jo aksar kam secure hota hai
-        target_url = "https://hdhub4u.monster/" 
+        # Domain change to .icu (HDHub mirrors are often less protected)
+        target_url = "https://hdhub4u.icu/" 
         
-        # render=true zaroori ho sakta hai agar content JS se aa raha ho
-        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&render=true"
+        # Using premium proxies without heavy rendering to avoid 500
+        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&premium=true&country_code=in"
         
-        print(f"🚀 Debugging HTML on: {target_url}")
+        print(f"🚀 Shadow Scraper targeting: {target_url}")
         
-        response = requests.get(proxy_url, timeout=120)
+        # Headers to look even more human
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'}
+        
+        response = requests.get(proxy_url, headers=headers, timeout=60)
         
         if response.status_code == 200:
+            print("✅ Connection Successful! Parsing HTML...")
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # SABSE SIMPLE SELECTOR: Sirf 'a' tags (links) dhoondo jinke andar movie titles ho sakte hain
+            # Universal Hunter: Looking for any link that looks like a movie
             links = soup.find_all('a')
-            print(f"📡 Total links found on page: {len(links)}")
+            print(f"📡 Found {len(links)} links. Filtering for movies...")
             
             count = 0
-            for link_tag in links:
-                href = link_tag.get('href', '')
-                # HDHub ke movie links mein aksar ye words hote hain
-                if '/movies/' in href or '/hindi-dubbed/' in href or '/bollywood-movies/' in href:
-                    title = link_tag.get_text(strip=True)
-                    
-                    if len(title) > 10: # Chhote links ko skip karo
-                        # Poster dhoondne ke liye link ke andar ki image dekho
-                        img_tag = link_tag.find('img')
-                        poster = ""
-                        if img_tag:
-                            poster = img_tag.get('data-src') or img_tag.get('src')
+            for link in links:
+                href = link.get('href', '')
+                text = link.get_text(strip=True)
+                
+                # HDHub typical patterns
+                if any(word in href for word in ['/movies/', '/hindi-', '/download-']):
+                    if len(text) > 15: # Movie titles are usually long
+                        img = link.find('img')
+                        poster = img.get('data-src') or img.get('src') if img else ""
 
-                        if not collection.find_one({"title": title}):
+                        if not collection.find_one({"title": text}):
                             collection.insert_one({
-                                "title": title,
+                                "title": text,
                                 "poster": poster,
-                                "source_link": href if href.startswith('http') else target_url + href,
+                                "source_link": href if href.startswith('http') else target_url.rstrip('/') + href,
                                 "status": "active",
                                 "timestamp": time.time()
                             })
-                            print(f"✅ Found & Synced: {title}")
+                            print(f"🎬 New Movie: {text}")
                             count += 1
             
-            if count == 0:
-                print("⚠️ Still 0 movies. Checking if page is blocked or empty...")
-                # Debugging ke liye HTML ka chhota hissa print karo
-                print("HTML Snippet:", response.text[:500]) 
-
-            print(f"🏁 Processed. Added: {count}")
+            print(f"🏁 Sync Finished. Added {count} movies.")
+            
         else:
-            print(f"❌ Error Code: {response.status_code}")
+            print(f"❌ ScraperAPI failed again. Code: {response.status_code}")
+            if response.status_code == 403:
+                print("💡 Tip: ScraperAPI credits might be low or domain is heavily blacklisted.")
 
     except Exception as e:
         print(f"❌ Error: {e}")
