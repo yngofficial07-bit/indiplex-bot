@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndiPlex - Latest Movies</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; color: white; font-family: sans-serif; }
+        .movie-card:hover img { transform: scale(1.1); }
+        .movie-card img { transition: 0.4s; }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-10 border-b border-gray-700 pb-5">
+            <h1 class="text-3xl font-bold text-cyan-400 tracking-tighter">INDIPLEX</h1>
+            <span class="bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full text-xs">Live Database</span>
+        </header>
+
+        <div id="movie-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            <div class="col-span-full text-center py-20 text-gray-500 italic">Fetching latest releases...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadMovies() {
+            try {
+                // movies.json se data load karna
+                const response = await fetch('movies.json');
+                const movies = await response.json();
+                
+                const grid = document.getElementById('movie-grid');
+                grid.innerHTML = ''; // Loader hatana
+
+                movies.forEach(movie => {
+                    grid.innerHTML += `
+                        <div class="movie-card bg-slate-800 rounded-xl overflow-hidden shadow-2xl">
+                            <div class="overflow-hidden h-64 bg-slate-700">
+                                <img src="${movie.poster}" alt="Poster" class="w-full h-full object-cover" 
+                                     onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'">
+                            </div>
+                            <div class="p-4">
+                                <h3 class="text-sm font-bold truncate mb-3">${movie.title}</h3>
+                                <a href="${movie.link}" target="_blank" 
+                                   class="block w-full py-2 text-center bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition">
+                                   VIEW MOVIE
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                document.getElementById('movie-grid').innerHTML = `<p class="col-span-full text-center text-red-400">Error loading database. Please run scraper first.</p>`;
+            }
+        }
+        loadMovies();
+    </script>
+</body>
+</html>
