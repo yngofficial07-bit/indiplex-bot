@@ -16,44 +16,32 @@ def run_scraper():
 
         # Target URL
         target_url = "https://new4.hdhub4u.fo/"
+        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&premium=true"
         
-        # Advanced Proxy URL (Adding ultra-premium settings)
-        # premium=true Cloudflare bypass ke liye best hai
-        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&premium=true&country_code=us"
+        print(f"🚀 Scraping with Wide-Selectors: {target_url}")
+        response = requests.get(proxy_url, timeout=90)
         
-        print(f"🚀 Final Boss Scraper starting for: {target_url}")
-        
-        response = requests.get(proxy_url, timeout=90) # Extra timeout for premium
-        
-        if response.status_code != 200:
-            print(f"❌ ScraperAPI Status: {response.status_code}. Checking backup mirror...")
-            # Agar primary fail ho, toh Mirror site try karo bina premium ke
-            target_url = "https://hdhub4u.mx/"
-            proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}"
-            response = requests.get(proxy_url, timeout=60)
-
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            # HDHub ke common classes
-            movies = soup.find_all('div', class_='rt-movie-card') or soup.select('article')
             
-            print(f"🔍 Found {len(movies)} movies!")
+            # AGGRESSIVE SELECTORS: Sab kuch check karo
+            movies = soup.select('.rt-movie-card') or soup.select('article') or soup.select('.item') or soup.select('.post')
+            
+            print(f"🔍 Found {len(movies)} potential movies!")
             
             for movie in movies:
                 try:
-                    title_tag = movie.find('h3') or movie.find('h2')
+                    # Generic search for Title, Link and Poster
                     link_tag = movie.find('a')
                     img_tag = movie.find('img')
+                    title_tag = movie.find('h3') or movie.find('h2') or (link_tag.get('title') if link_tag else None)
 
-                    if title_tag and link_tag:
-                        title = title_tag.text.strip()
+                    if link_tag and img_tag:
+                        title = title_tag.text.strip() if hasattr(title_tag, 'text') else str(title_tag)
                         link = link_tag['href']
-                        # Poster image dhoondne ka logic
-                        poster = ""
-                        if img_tag:
-                            poster = img_tag.get('data-src') or img_tag.get('src') or ""
+                        poster = img_tag.get('data-src') or img_tag.get('src')
 
-                        if not collection.find_one({"title": title}):
+                        if title and not collection.find_one({"title": title}):
                             collection.insert_one({
                                 "title": title,
                                 "poster": poster,
@@ -61,12 +49,12 @@ def run_scraper():
                                 "status": "active",
                                 "timestamp": time.time()
                             })
-                            print(f"✅ Sync Successful: {title}")
-                except Exception as e:
+                            print(f"✅ Synced: {title}")
+                except:
                     continue
-            print("🏁 Sync Complete!")
+            print("🏁 Process Finished!")
         else:
-            print(f"💀 Still getting {response.status_code}. Bhai, domain block ho gaya lagta hai.")
+            print(f"💀 API Error: {response.status_code}")
 
     except Exception as e:
         print(f"❌ Error: {e}")
