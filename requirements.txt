@@ -1,6 +1,4 @@
-cloudscraper
-pymongo
-beautifulsoup4
-certifi
-requests
 curl_cffi
+beautifulsoup4
+pymongo
+certifi
