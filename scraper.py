@@ -14,55 +14,58 @@ def run_scraper():
         db = client["indiplex_db"]
         collection = db["media_vault"]
 
-        # Domain change to .icu (HDHub mirrors are often less protected)
-        target_url = "https://hdhub4u.icu/" 
+        # Vegamovies Target
+        target_url = "https://vegamovies.actor/" 
         
-        # Using premium proxies without heavy rendering to avoid 500
-        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&premium=true&country_code=in"
+        # ScraperAPI with Premium (Bypass for stable connection)
+        proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&premium=true"
         
-        print(f"🚀 Shadow Scraper targeting: {target_url}")
+        print(f"🚀 Switching target to: {target_url}")
         
-        # Headers to look even more human
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'}
-        
-        response = requests.get(proxy_url, headers=headers, timeout=60)
+        response = requests.get(proxy_url, timeout=60)
         
         if response.status_code == 200:
-            print("✅ Connection Successful! Parsing HTML...")
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Universal Hunter: Looking for any link that looks like a movie
-            links = soup.find_all('a')
-            print(f"📡 Found {len(links)} links. Filtering for movies...")
+            # Vegamovies movie container detection
+            # Ye 'article' ya 'div' mein cards rakhte hain
+            movies = soup.find_all('article') or soup.find_all('div', class_='blog-post')
+            
+            print(f"📡 Found {len(movies)} potential movies.")
             
             count = 0
-            for link in links:
-                href = link.get('href', '')
-                text = link.get_text(strip=True)
-                
-                # HDHub typical patterns
-                if any(word in href for word in ['/movies/', '/hindi-', '/download-']):
-                    if len(text) > 15: # Movie titles are usually long
-                        img = link.find('img')
-                        poster = img.get('data-src') or img.get('src') if img else ""
+            for movie in movies:
+                try:
+                    # Title aur Link extraction
+                    title_tag = movie.find('h3') or movie.find('h2')
+                    link_tag = movie.find('a')
+                    img_tag = movie.find('img')
 
-                        if not collection.find_one({"title": text}):
+                    if title_tag and link_tag:
+                        title = title_tag.get_text(strip=True)
+                        link = link_tag['href']
+                        # Poster image (handles lazy loading)
+                        poster = img_tag.get('data-src') or img_tag.get('src') or ""
+
+                        # Database insertion
+                        if not collection.find_one({"title": title}):
                             collection.insert_one({
-                                "title": text,
+                                "title": title,
                                 "poster": poster,
-                                "source_link": href if href.startswith('http') else target_url.rstrip('/') + href,
+                                "source_link": link,
                                 "status": "active",
                                 "timestamp": time.time()
                             })
-                            print(f"🎬 New Movie: {text}")
+                            print(f"🎬 Synced: {title}")
                             count += 1
+                        else:
+                            print(f"⏩ Existing: {title}")
+                except Exception as e:
+                    continue
             
-            print(f"🏁 Sync Finished. Added {count} movies.")
-            
+            print(f"🏁 Done! Total new movies added: {count}")
         else:
-            print(f"❌ ScraperAPI failed again. Code: {response.status_code}")
-            if response.status_code == 403:
-                print("💡 Tip: ScraperAPI credits might be low or domain is heavily blacklisted.")
+            print(f"❌ ScraperAPI Status: {response.status_code}")
 
     except Exception as e:
         print(f"❌ Error: {e}")
