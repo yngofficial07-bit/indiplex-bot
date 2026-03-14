@@ -4,4 +4,3 @@ beautifulsoup4
 certifi
 requests
 curl_cffi
-
