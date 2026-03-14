@@ -3,3 +3,5 @@ pymongo
 beautifulsoup4
 certifi
 requests
+curl_cffi
+beautifulsoup4
