@@ -40,7 +40,7 @@ def run_scraper():
                         
                         # Poster path fix (Domain jodna)
                         if poster.startswith('/'):
-                            poster = "https://vegamovise2.com.in/" + poster
+                            poster = "https://vegamovise2.com.in" + poster
 
                         data = {"title": title, "poster": poster, "link": link}
                         
