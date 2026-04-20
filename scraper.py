@@ -16,7 +16,7 @@ def run_scraper():
         collection = db["media_vault"]
 
         # Vegamovies Target (Success Rate High Hai)
-        target_url = "https://vegamovies.actor/" 
+        target_url = "https://vegamovise2.com.in/" 
         proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&premium=true"
         
         print(f"🚀 Scraping started for: {target_url}")
