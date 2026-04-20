@@ -16,7 +16,7 @@ def run_scraper():
         collection = db["media_vault"]
 
         # Vegamovies Target (Success Rate High Hai)
-        target_url = "https://vegamovise2.com.in/" 
+        target_url = "http://vegamovise2.com.in/" 
         proxy_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&url={target_url}&premium=true"
         
         print(f"🚀 Scraping started for: {target_url}")
@@ -40,7 +40,7 @@ def run_scraper():
                         
                         # Poster path fix (Domain jodna)
                         if poster.startswith('/'):
-                            poster = "https://vegamovise2.com.in" + poster
+                            poster = "http://vegamovise2.com.in" + poster
 
                         data = {"title": title, "poster": poster, "link": link}
                         
